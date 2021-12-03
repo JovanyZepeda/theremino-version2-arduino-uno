@@ -6,6 +6,8 @@
 #include <Wire.h>
 
 //==========================Variable Initialization Start =====================//
+
+// -------------------------MPU VARS Start ------------------------//
 const int MPU = 0x68; // MPU6050 I2C address From Datasheet
 float AccX, AccY, AccZ;
 float GyroX, GyroY, GyroZ;
@@ -17,6 +19,22 @@ int c = 0;
 int error_samples = 1000;
 
 bool GYRO_DEBUG = false;
+// -------------------------MPU VARS  End------------------------//
+
+// --------- SERIAL MONITER MENU VARS Start ----------------- //
+bool EM1_GYRO = false;
+bool EM2_FOOT_SONAR = false;
+bool EM3_SONAR_ONLY = false;
+bool EM1_DEBUG = false;
+bool EM2_DEBUG = false;
+bool EM3_DEBUG = false;
+// --------- SERIAL MONITER MENU VARS End   ----------------- //
+
+// ----------------Speaker Vars Start--------------------------------//
+
+// ----------------Speaker Vars End --------------------------------//
+
+
 //==========================Variable Initialization End =====================//
 
 
@@ -46,6 +64,9 @@ void loop() {
 
 
 // ============================  Functions ====================================//
+
+
+//--------------GYRO Function Start--------------------//
 
 void print_MPU_gyro_xyz_angles(){
 
@@ -121,6 +142,7 @@ void read_MPU_data(){
 }
 
 void calculate_IMU_error() {
+
   // We can call this funtion in the setup section to calculate the accelerometer and gyro data error. From here we will get the error values used in the above equations printed on the Serial Monitor.
   // Note that we should place the IMU flat in order to get the proper values, so that we then can the correct values
   // Read accelerometer values 200 times
@@ -172,3 +194,117 @@ void calculate_IMU_error() {
   Serial.print("GyroErrorZ: ");
   Serial.println(GyroErrorZ);
 }
+
+//-----------------GYRO Function End--------------------//
+
+// ---------------SERIAL MOnitor Menu Functions Start ----------//
+void serial_monitor_menu_EM(){
+
+  Serial.begin(9600);
+  Serial.println("|**********************************************|");
+  Serial.println("|**|Theremino V2 External Module Selection  |**|");
+  Serial.println("|**|                  Menu                  |**|");
+  Serial.println("|**********************************************|");
+  Serial.println("");
+  Serial.println("Select one of the following options:");
+  Serial.println("EM#1: Gyro Head Band           -> ENTER 1");
+  Serial.println("EM#2: Foot Pedal and One Sonar -> ENTER 2");
+  Serial.println("EM#3: Sonar Sensor             -> ENTER 3");
+  while(!Serial.available()){
+    int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
+
+    switch(USER_INPUT){
+      case 1:
+        EM1_GYRO = true;
+        Serial.println("External Module #1 Selected: Gyro Head Band");
+        break;
+      case 2:
+        EM2_FOOT_SONAR = true;
+        Serial.println("External Module #2 Selected: Foot Pedal and One Sonar");
+        break;
+      case 3:
+        EM3_SONAR_ONLY = true;
+        Serial.println("External Module #3 Selected: Sonar Sensor");
+        break;
+      default:
+        Serial.println("Unrecognized command, try again!");
+        serial_monitor_menu_EM(); //RESTART MENU PROGRAM 
+    } 
+  }
+
+  Serial.println("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n");
+
+}
+
+void Serial_monitor_menu_debug(){
+  Serial.println("|**********************************************|");
+  Serial.println("|**|      Theremino V2 DEBUG Selection      |**|");
+  Serial.println("|**|                  Menu                  |**|");
+  Serial.println("|**********************************************|");
+  Serial.println("");
+  Serial.println("Select one of the following options:");
+  Serial.println("EM#1: Print GYRO and freqeuncy/volume values                  -> ENTER 1");
+  Serial.println("EM#2: Print rotary encoder values and freqeuncy/volume values -> ENTER 2");
+  Serial.println("EM#3: Print sonar data and freqeuncy/volume values            -> ENTER 3");
+  while(!Serial.available()){
+    int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
+
+    switch(USER_INPUT){
+      case 1:
+        EM1_DEBUG = true;
+        Serial.println("External Module #1 debug Selected");
+        break;
+      case 2:
+        EM2_DEBUG = true;
+        Serial.println("External Module #2 debug Selected");
+        break;
+      case 3:
+        EM3_DEBUG = true;
+        Serial.println("External Module #3 debug Selected");
+        break;
+      default:
+        Serial.println("Unrecognized command, try again!");
+        Serial_monitor_menu_debug(); //RESTART MENU PROGRAM 
+    } 
+  }
+
+  Serial.println("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n");
+}
+
+// ---------------SERIAL MOnitor Menu Functions End ----------//
+
+
+// --------------- Rotary Encoder Functions Start ----------//
+void setup_rotary_encoder(){
+
+  Serial.begin(9600); // start serial coms
+
+
+
+}
+
+void read_read_encoder(){
+
+}
+// ---------------Rotary Encoder Functions End    ----------//
+
+
+// ---------------Sonar Functions Start ----------//
+void setup_sonar_sensor(){
+
+}
+
+void read_sonar_sensor(){
+
+}
+
+// ---------------Sonar Functions End    ----------//
+
+
+// ---------------Speaker Functions Start    ----------//
+void setup_speaker(){
+}
+
+void play_tone_on_speaker(){
+}
+// ---------------Speaker Functions End    ----------//
