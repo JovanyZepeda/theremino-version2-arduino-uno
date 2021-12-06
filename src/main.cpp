@@ -10,9 +10,9 @@ Note:
     Pin 10
 
   Rotary Encoder:
-    CLK => 1
-    DT => 2
-    SW => 0
+    CLK => 13
+    DT => 12
+    SW => 11
 
   Gyro:
     SCL => SCL
@@ -34,12 +34,12 @@ Note:
 
 //======================== SENSOR PIN LAYOUT START ======================================//
 // Rotary Encoder Inputs
-#define CLK 1
-#define DT 2
-#define SW 0
-#define VOLUME_SONAR_ECHO_PIN 4
-#define VOLUME_SONAR_TRIG_PIN 5 
-#define PITCH_SONAR_ECHO_PIN 7 
+#define CLK 13
+#define DT 8
+#define SW 11
+#define VOLUME_SONAR_ECHO_PIN 3
+#define VOLUME_SONAR_TRIG_PIN 4 
+#define PITCH_SONAR_ECHO_PIN 5
 #define PITCH_SONAR_TRIG_PIN 6
 //======================== SENSOR PIN LAYOUT END======================================//
 
@@ -58,15 +58,12 @@ float elapsedTime, currentTime, previousTime;
 int c = 0;
 int error_samples = 1000;
 
-float roll_temp_MAX = 30;
-float roll_temp_MIN = -30;
-float pitch_temp_MAX = 30;
-float pitch_temp_MIN = -30;
-float yaw_temp_MAX = 30;
-float yaw_tamp_MIN = -30;
-
-
-bool GYRO_DEBUG = false;
+#define roll_temp_MAX 30
+#define roll_temp_MIN -30
+#define pitch_temp_MAX 30
+#define pitch_temp_MIN -30
+#define yaw_temp_MAX 30
+#define yaw_tamp_MIN -15
 
 // --------- SERIAL MONITER MENU VARS Start ------------------ //
 bool EM1_GYRO = false;
@@ -98,7 +95,7 @@ int currentStateCLK;
 int lastStateCLK;
 String currentDir ="";
 unsigned long lastButtonPress = 0;
-
+int btnState = 0;
 //----------------Speaker Variables ----------------------------//
 int frequency_output_maximum = 10000;
 int freqeuncy_output_minimum = 10;
@@ -118,6 +115,7 @@ void setup_rotary_encoder();
 void read_encoder();
 void read_sonar_sensor(int which_sonar);
 void play_tone_on_speaker();
+void sonar_sensor_debug();
 // =========================== ARDUINO CODE ==============================//
 void setup() {
   Serial.begin(9600);
@@ -129,19 +127,16 @@ void setup() {
   //Depending on 
   if (EM1_GYRO){
     configure_MPU_register();
-
-  } else 
+    calculate_IMU_error();
+  }  
   if(EM2_FOOT_SONAR){
     setup_rotary_encoder();
-
-  } else 
+  }  
   if(EM3_SONAR_ONLY){
     // SONAR ALREADY SET UP IN VARIABLE INITIALIZATION
-
   }
 
- 
-  delay(20);
+  delay(30);
 }
 
 
@@ -149,14 +144,16 @@ void loop() {
 
   if(EM1_GYRO){
     read_MPU_data();
-  } else 
+    print_MPU_gyro_xyz_angles();
+  }  
   if(EM2_FOOT_SONAR){
     read_encoder();
     read_sonar_sensor(1);
-  } else
+  } 
   if(EM3_SONAR_ONLY){
     read_sonar_sensor(0);
     read_sonar_sensor(1);
+    sonar_sensor_debug();
   }
 
   if(SPEAKER_PLAY){
@@ -165,6 +162,7 @@ void loop() {
     noToneAC();
   }
 
+  delay(10);
 }
 
 
@@ -173,7 +171,7 @@ void loop() {
 
 void print_MPU_gyro_xyz_angles(){
 
-  if(GYRO_DEBUG) // Print the values on the serial monitor
+  if(EM1_DEBUG) // Print the values on the serial monitor
   {
     Serial.print(roll * 4.5); // |ROLL (X) = 
     Serial.print("/");
@@ -250,11 +248,11 @@ void read_MPU_data(){
   //Constrain the gyro to a set interval of acceptable values
   roll_temp  = constrain(roll,roll_temp_MIN, roll_temp_MAX );
   pitch_temp = constrain(pitch,pitch_temp_MIN, pitch_temp_MAX);
-  yaw_temp   = constrain(yaw_temp, yaw_tamp_MIN, yaw_temp_MAX);
+  yaw_temp   = constrain(yaw, yaw_tamp_MIN, yaw_temp_MAX);
 
   //Generate FREQ and VOLUME OUTPUT
   FREQ_OUTPUT   =  map(pitch_temp, pitch_temp_MIN, pitch_temp_MAX, freqeuncy_output_minimum, frequency_output_maximum ); // Use PITCH OR Y AXIS
-  VOLUME_OUTPUT =  map(yaw_temp, yaw_tamp_MIN, yaw_temp_MAX, freqeuncy_output_minimum, frequency_output_maximum); // Use YAW or Z axis
+  VOLUME_OUTPUT =  map(roll_temp, yaw_tamp_MIN, yaw_temp_MAX, 0, 10); // Use YAW or ROll. //Volume goes from 0 -> 10 only according to ToneAC library
 }
 
 void calculate_IMU_error() {
@@ -314,106 +312,126 @@ void calculate_IMU_error() {
 // ---------------SERIAL MOnitor Menu Functions Start ----------//
 void serial_monitor_menu_EM(){
 
-  Serial.println("|**********************************************|");
-  Serial.println("|**|Theremino V2 External Module Selection  |**|");
-  Serial.println("|**|                  Menu                  |**|");
-  Serial.println("|**********************************************|");
+  Serial.println(F("|**********************************************|"));
+  Serial.println(F("|**|Theremino V2 External Module Selection  |**|"));
+  Serial.println(F("|**|                  Menu                  |**|"));
+  Serial.println(F("|**********************************************|"));
   Serial.println("");
-  Serial.println("Select one of the following options:");
-  Serial.println("EM#1: Gyro Head Band           -> ENTER 1");
-  Serial.println("EM#2: Foot Pedal and One Sonar -> ENTER 2");
-  Serial.println("EM#3: Sonar Sensor             -> ENTER 3");
+  Serial.println(F("Select one of the following options:"));
+  Serial.println(F("EM#1: Gyro Head Band           -> ENTER 1"));
+  Serial.println(F("EM#2: Foot Pedal and One Sonar -> ENTER 2"));
+  Serial.println(F("EM#3: Sonar Sensor             -> ENTER 3"));
+  Serial.println(F("Get Gyro Error Offsets         -> ENTER 4"));
 
   while(!Serial.available()){
+  }
+
     int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
 
     switch(USER_INPUT){
       case 1:
         EM1_GYRO = true;
-        Serial.println("External Module #1 Selected: Gyro Head Band");
+        Serial.println(F("External Module #1 Selected: Gyro Head Band"));
         break;
       case 2:
         EM2_FOOT_SONAR = true;
-        Serial.println("External Module #2 Selected: Foot Pedal and One Sonar");
+        Serial.println(F("External Module #2 Selected: Foot Pedal and One Sonar"));
         break;
       case 3:
         EM3_SONAR_ONLY = true;
-        Serial.println("External Module #3 Selected: Sonar Sensor");
+        Serial.println(F("External Module #3 Selected: Sonar Sensor"));
+        break;
+      case 4:
+        Serial.println(F("\n\nPrinting Gyro Errors. Update the code with these values"));
+        configure_MPU_register();
+        calculate_IMU_error();
+        serial_monitor_menu_EM();
         break;
       default:
-        Serial.println("Unrecognized command, try again!");
+        Serial.println(F("Unrecognized command, try again!"));
         serial_monitor_menu_EM(); //RESTART MENU PROGRAM 
-    } 
+     
   }
 
-  Serial.println("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n");
+  Serial.println(F("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n"));
 
 }
 
 void Serial_monitor_menu_debug(){
-  Serial.println("|**********************************************|");
-  Serial.println("|**|      Theremino V2 DEBUG Selection      |**|");
-  Serial.println("|**|                  Menu                  |**|");
-  Serial.println("|**********************************************|");
+  Serial.println(F("|**********************************************|"));
+  Serial.println(F("|**|      Theremino V2 DEBUG Selection      |**|"));
+  Serial.println(F("|**|                  Menu                  |**|"));
+  Serial.println(F("|**********************************************|"));
   Serial.println("");
-  Serial.println("Select one of the following options:");
-  Serial.println("EM#1: Print GYRO and freqeuncy/volume values                  -> ENTER 1");
-  Serial.println("EM#2: Print rotary encoder values and freqeuncy/volume values -> ENTER 2");
-  Serial.println("EM#3: Print sonar data and freqeuncy/volume values            -> ENTER 3");
+  Serial.println(F("Select one of the following options:"));
+  Serial.println(F("EM#1: Print GYRO and freqeuncy/volume values                  -> ENTER 1"));
+  Serial.println(F("EM#2: Print rotary encoder values and freqeuncy/volume values -> ENTER 2"));
+  Serial.println(F("EM#3: Print sonar data and freqeuncy/volume values            -> ENTER 3"));
+  Serial.println(F("NO DEBUG                                                      -> ENTER 4"));
+
 
   while(!Serial.available()){
-    int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
-
+    
+  }
+  int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
     switch(USER_INPUT){
       case 1:
         EM1_DEBUG = true;
-        Serial.println("External Module #1 debug Selected");
+        Serial.println(F("\nExternal Module #1 debug Selected"));
         break;
       case 2:
         EM2_DEBUG = true;
-        Serial.println("External Module #2 debug Selected");
+        Serial.println(F("\nExternal Module #2 debug Selected"));
         break;
       case 3:
         EM3_DEBUG = true;
-        Serial.println("External Module #3 debug Selected");
+        Serial.println(F("\nExternal Module #3 debug Selected"));
+        break;
+      case 4:
+        EM1_DEBUG = false;
+        EM2_DEBUG = false;
+        EM3_DEBUG = false;
+        Serial.println(F("\n\n NO DEBUG \n\n"));
         break;
       default:
-        Serial.println("Unrecognized command, try again!");
+        Serial.println(("Unrecognized command, try again!"));
         Serial_monitor_menu_debug(); //RESTART MENU PROGRAM 
     } 
-  }
+  
 
-  Serial.println("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n");
+  Serial.println(F("*******EXIT EXTERNAL MODULE SELECTION MENU ********\n\n"));
 }
 
 void serial_monitor_menu_speaker(){
 
-  Serial.println("|************************************************|");
-  Serial.println("|**|      Theremino V2 Speaker Selection      |**|");
-  Serial.println("|**|                  Menu                    |**|");
-  Serial.println("|************************************************|");
+  Serial.println(F("|************************************************|"));
+  Serial.println(F("|**|      Theremino V2 Speaker Selection      |**|"));
+  Serial.println(F("|**|                  Menu                    |**|"));
+  Serial.println(F("|************************************************|"));
   Serial.println("");
-  Serial.println("Select one of the following options:");
-  Serial.println("Play Sound Through the speaker     -> ENTER 1");
-  Serial.println("Do Not Play Sound through speaker  -> ENTER 2");
+  Serial.println(F("Select one of the following options:"));
+  Serial.println(F("Play Sound Through the speaker     -> ENTER 1"));
+  Serial.println(F("Do Not Play Sound through speaker  -> ENTER 2"));
 
   while(!Serial.available()){
+
+  }
     int USER_INPUT = Serial.parseInt(); // GET USER INPUT from Serial monitor
 
     switch(USER_INPUT){
       case 1:
         SPEAKER_PLAY = true;
-        Serial.println("Speaker will play tone");
+        Serial.println(F("Speaker will play tone"));
         break;
       case 2:
-        SPEAKER_PLAY = true;
-        Serial.println("Speaker will not play tone");
+        SPEAKER_PLAY = false;
+        Serial.println(F("Speaker will not play tone"));
         break;
       default:
-        Serial.println("Unrecognized command, try again!\n\n");
+        Serial.println(F("Unrecognized command, try again!\n\n"));
         serial_monitor_menu_speaker(); //RESTART MENU PROGRAM
     }
-  }
+  
 }
 
 // --------------- Rotary Encoder Functions Start ----------//
@@ -430,6 +448,13 @@ void setup_rotary_encoder(){
 }
 
 void read_encoder(){
+
+  Serial.print("CLK: ");
+  Serial.print(digitalRead(CLK));
+  Serial.print("| DT: ");
+  Serial.print(digitalRead(DT));
+  Serial.print("\n");
+
   // Read the current state of CLK
   currentStateCLK = digitalRead(CLK);
 
@@ -447,11 +472,17 @@ void read_encoder(){
       counter ++;
       currentDir ="CW";
     }
-
+    //constrain the counter output to a specfic interval
+    if(counter < 0){
+      counter = 0;
+    }  else 
+    if(counter > maxCounterCount){
+      counter = maxCounterCount;
+    }
     if (EM2_DEBUG){ //DEBUGING INFORMATION IF TRUE
-      Serial.print("Direction: ");
+      Serial.print(F("Direction: "));
       Serial.print(currentDir);
-      Serial.print(" | Counter: ");
+      Serial.print(F(" | Counter: "));
       Serial.println(counter);
     }
   }
@@ -459,19 +490,13 @@ void read_encoder(){
   // Remember last CLK state
   lastStateCLK = currentStateCLK;
 
-  //constrain the counter output to a specfic interval
-  if(counter < 0){
-    counter = 0;
-  }  else 
-  if(counter > maxCounterCount){
-    counter = maxCounterCount;
-  }
+  
 
   //Re-scale distance values using Map Function
   VOLUME_OUTPUT = map(counter, 0, maxCounterCount, 0, 10); // 0 (off) up to 10 (loudest)
 
   // Read the button state
-  int btnState = digitalRead(SW);
+  btnState = digitalRead(SW);
 
   //If we detect LOW signal, button is pressed
   if (btnState == LOW) {
@@ -481,7 +506,7 @@ void read_encoder(){
       counter = 0;
 
       if(EM2_DEBUG){ //DEBUGING INFORMATION IF TRUE
-        Serial.println("Button pressed: COUNTER RESET!");
+        Serial.println(F("Button pressed: COUNTER RESET!"));
       }
     }
 
@@ -496,21 +521,25 @@ void read_encoder(){
 void read_sonar_sensor(int which_sonar){  // 0 = Volume sonar, 1 = freq sonar
 
 
-  if(which_sonar = 0){
+  if(which_sonar == 0){
 
     //Get Distances Values in CM
     VolumeSonarDistance = sonar[which_sonar].ping_cm();
+    delay(30); //delay for ping
 
     //Re-scale distance values using Map Function
     VOLUME_OUTPUT = map(VolumeSonarDistance, 0, MAX_DISTANCE, 0, 10); // 0 (off) up to 10 (loudest)
 
   } else 
   
-  if(which_sonar = 1){
+  if(which_sonar == 1){
 
     //Get Distances Values in CM
-    PitchSonarUs = sonar[which_sonar].ping();
+    // PitchSonarUs = sonar[which_sonar].ping();
+    // delay(30); //delay for ping
+
     PitchSonarDistance = sonar[which_sonar].ping_cm();
+    delay(29); //delay for ping
 
     //Re-scale distance values using Map Function
     FREQ_OUTPUT = map(PitchSonarDistance, 0, MAX_DISTANCE, freqeuncy_output_minimum, frequency_output_maximum); // 0 Hz up to 10 KHz
@@ -524,30 +553,26 @@ void read_sonar_sensor(int which_sonar){  // 0 = Volume sonar, 1 = freq sonar
 
 void sonar_sensor_debug(){
   //Log data for debugging
-  if (SPEAKER_OUTPUT_DEBUG){
+  if (EM3_DEBUG){
     //Print Distance Values
     Serial.print("| Volume Distance CM: ");
     Serial.print(VolumeSonarDistance);
-    Serial.print("\t");
 
     //Print Distance Values
-    Serial.print("| Pitch Microseconds uS: ");
-    Serial.print(PitchSonarUs);
-    Serial.print("\t");
+    // Serial.print("| Pitch Microseconds uS: ");
+    // Serial.print(PitchSonarUs);
 
     Serial.print("| Pitch Distance CM: ");
     Serial.print(PitchSonarDistance);
-    Serial.print("\n");
     
     //Print Freqeuncy
     Serial.print("| Freqeuncy Hz: ");
     Serial.print(FREQ_OUTPUT);
-    Serial.print("\t");
     
     //Print Volume Level
-     Serial.print("| Volume Level: ");
+    Serial.print("| Volume Level: ");
     Serial.print(VOLUME_OUTPUT);
-    Serial.print("\n");
+    Serial.println();
   }
 }
 
